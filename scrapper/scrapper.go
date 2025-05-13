@@ -122,10 +122,11 @@ func writeJobs(jobs []extractedJob) {
 	checkErr((err))
 	// prevent the corruption of hangul
 	utf8bom := []byte{0xEF, 0xBB, 0xBF} 
-	file.Write(utf8bom) 
+	file.Write(utf8bom) // file.Write() is appropriate at writing little amount of data. It's not effective at repetitive writing causing disk I/O. 
 
 	w := csv.NewWriter(file) // buffer
-	defer w.Flush() // run when functions ends
+	defer w.Flush() // run when functions ends, writes all contents in the buffer at once.
+	defer file.Close() // clear FD
 
 	headers := []string{"ID", "Title", "Date", "Location", "Corp"}
 
