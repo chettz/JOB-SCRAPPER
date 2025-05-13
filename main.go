@@ -10,8 +10,11 @@ import (
 )
 
 type extractedJob struct{
-	id		string
-	title	string
+	id			string
+	title		string
+	date		string
+	condition 	string
+	corp 		string
 	
 }
 
