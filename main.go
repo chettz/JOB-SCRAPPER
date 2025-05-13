@@ -1,154 +1,26 @@
 package main
 
 import (
-	"encoding/csv"
-	"fmt"
-	"log"
-	"net/http"
-	"os"
-	"strconv"
+	"job-scrapper/scrapper"
 	"strings"
 
-	"github.com/PuerkitoBio/goquery"
+	"github.com/labstack/echo"
 )
 
-type extractedJob struct{
-	id			string
-	title		string
-	date		string  //deadline
-	location 	string
-	corp 		string
-	
+func handleHome(c echo.Context) error {
+	return c.File("home.html")
 }
 
-var baseURL string = "https://www.saramin.co.kr/zf_user/search/recruit?=&searchword=python"
+func handleScrape(c echo.Context) error {
+	term := strings.ToLower(scrapper.CleanString(c.FormValue("term")))
+	scrapper.Scrape(term)
+	return c.Attachment("jobs.csv", "jobs.csv")
+}
 
-// make a goroutines using channels to make fast
-// main <-> getPage(goroutines * 10(totalpages)), getPage <-> extractJob (goroutines * # of jobs per page ) | total goroutines 10 + (10*40) 
-// make writeJobs to goroutines
 
 func main() {
-	var jobs []extractedJob
-	c := make(chan []extractedJob)
-	totalPages := getPages()
-
-	for i:=0;i<totalPages;i++{
-		go getPage(i+1, c)
-	}
-
-	for i:=0; i<totalPages; i++{
-		extractedJobs := <-c
-		jobs = append(jobs, extractedJobs...)
-	}
-	writeJobs(jobs)
-	fmt.Println("Done, extracted", len(jobs))
-}
-
-func getPage(page int, mainC chan<- []extractedJob) {
-	var jobs []extractedJob
-	c := make(chan extractedJob)
-	pageURL := baseURL + "&recruitPage=" + strconv.Itoa(page)
-	fmt.Println("Requesting", pageURL)
-	res, err := http.Get(pageURL)
-	checkErr(err)
-	checkCode(res)
-
-	defer res.Body.Close()
-
-	doc, err := goquery.NewDocumentFromReader(res.Body)
-	checkErr(err)
-
-	searchCards := doc.Find(".item_recruit")
-
-	searchCards.Each(func(i int, card *goquery.Selection){ // 'card' means each card section
-		go extractJob(card, c) // calls multiple extractJob at the same time
-	})
-
-	for i:=0; i<searchCards.Length(); i++{
-		job := <-c // recieve the results, block operation
-		jobs = append(jobs, job)
-	}
-	mainC <- jobs
-}
-
-func extractJob(card *goquery.Selection, c chan<- extractedJob) {
-	locations := []string{}
-	var location string
-	id, _ := card.Attr("value")
-	title := cleanString(card.Find(".job_tit>a").Text())
-	card.Find(".job_condition span").First().Find("a").Each(func(i int, s *goquery.Selection){
-		locations = append(locations, s.Text())
-		location = strings.Join(locations, " ") // ["seoul", "yongsan-gu"] -> "seoul yongsan-gu"
-	})
-	corp := cleanString(card.Find(".corp_name").Text())
-	date := cleanString(card.Find(".date").Text())
-	c <- extractedJob{
-		id: 		id, 
-		title: 		title, 
-		location: 	location, 
-		corp: 		corp, 
-		date: 		date}
-}
-
-func cleanString(str string) string {
-	// removing space from the both side and seperating all the words removes the space between text
-	// the texts parsed from html contains spaces between words. it can be removed by strings.Fields and made to array 
-	// Strings.Join(array -> string) => concatenating the elements of a to create a single string with a seperater
-	return strings.Join(strings.Fields(strings.TrimSpace(str)), " ")
-}
-
-func getPages() int {
-	pages := 0
-	res, err := http.Get(baseURL)
-	checkErr(err)
-	checkCode(res)
-
-	defer res.Body.Close()
-
-	doc, err := goquery.NewDocumentFromReader(res.Body)
-	checkErr(err)
-
-	doc.Find(".pagination").Each(func(i int, s *goquery.Selection){
-		pages = s.Find("a").Length()
-	})
-	return pages
-}
-
-func writeJobs(jobs []extractedJob) {
-	c := make(chan []string)
-	file, err := os.Create("jobs.csv")
-	checkErr((err))
-
-	w := csv.NewWriter(file) // buffer
-	defer w.Flush() // run when functions ends
-
-	headers := []string{"ID", "Title", "Date", "Location", "Corp"}
-
-	wErr := w.Write(headers)
-	checkErr(wErr)
-	for _, job := range jobs{
-		go writingJobs(job, c)
-	}
-
-	for i:=0; i<len(jobs);i++{
-		w.Write(<-c)
-	}
-}
-
-func writingJobs(job extractedJob, c chan<- []string) {
-		links := "https://www.saramin.co.kr/zf_user/jobs/relay/view?isMypage=no&rec_idx=" + job.id
-		jobSlice := []string{links, job.title, job.date, job.location, job.corp}
-		c <- jobSlice
-}
-
-func checkErr(err error){
-	if err != nil{
-		log.Fatalln(err)
-	}
-}
-
-func checkCode(res *http.Response){
-	if res.StatusCode != 200 {
-		log.Fatalln("Request failed with Status:", res.StatusCode)
-	}
+	e := echo.New()
+	e.GET("/", handleHome)
+	e.POST("/scrape", handleScrape)
+	e.Logger.Fatal(e.Start(":1323"))
 }
