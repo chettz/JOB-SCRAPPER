@@ -120,6 +120,9 @@ func writeJobs(jobs []extractedJob) {
 	c := make(chan []string)
 	file, err := os.Create("jobs.csv")
 	checkErr((err))
+	// prevent the corruption of hangul
+	utf8bom := []byte{0xEF, 0xBB, 0xBF} 
+	file.Write(utf8bom) 
 
 	w := csv.NewWriter(file) // buffer
 	defer w.Flush() // run when functions ends
