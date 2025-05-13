@@ -1,4 +1,4 @@
-Job-Scrapper
+# Job-Scrapper
 *A repository created to practice Go Lang
 
 job-scrapper that searches for jobs using tech stack(python, Go, C++....)
