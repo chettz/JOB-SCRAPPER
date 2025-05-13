@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/csv"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -28,10 +30,31 @@ func main() {
 
 	for i:=0;i<totalPages;i++{
 		extractedJobs := getPage(i+1)
-		jobs = append(jobs, extractedJobs...) // get the contents
+		jobs = append(jobs, extractedJobs...) // get the contents(combines the arrays)
 	}
 
-	fmt.Println(jobs)
+	writeJobs(jobs)
+	fmt.Println("Done, extracted", len(jobs))
+}
+
+func writeJobs(jobs []extractedJob) {
+	file, err := os.Create("jobs.csv")
+	checkErr((err))
+
+	w := csv.NewWriter(file)
+	defer w.Flush() // run when functions ends
+
+	headers := []string{"ID", "Title", "Date", "Location", "Corp"}
+
+	wErr := w.Write(headers)
+	checkErr(wErr)
+	
+	for _, job := range jobs{
+		jobSlice := []string{"https://www.saramin.co.kr/zf_user/jobs/relay/view?isMypage=no&rec_idx=" + job.id, job.title, job.date, job.location, job.corp}
+		jwErr := w.Write(jobSlice)
+		checkErr(jwErr)
+	}
+
 }
 
 func getPage(page int) []extractedJob {
