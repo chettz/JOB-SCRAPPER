@@ -46,14 +46,15 @@ func getPage(page int){
 
 	doc.Find(".item_recruit").Each(func(i int, card *goquery.Selection){ // 's' means each card section
 		locations := []string{}
+		var location string
 		id, _ := card.Attr("value")
 		title := cleanString(card.Find(".job_tit>a").Text())
 		card.Find(".job_condition span").First().Find("a").Each(func(i int, s *goquery.Selection){
 			locations = append(locations, s.Text())
-			strings.Join(locations, " ") // ["seoul", "yongsan-gu"] -> "seoul yongsan-gu"
+			location = strings.Join(locations, " ") // ["seoul", "yongsan-gu"] -> "seoul yongsan-gu"
 		})
 		
-		fmt.Println(id, title, locations)
+		fmt.Println(id, title, location)
 
 	})
 
