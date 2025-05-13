@@ -24,7 +24,8 @@ type extractedJob struct{
 var baseURL string = "https://www.saramin.co.kr/zf_user/search/recruit?=&searchword=python"
 
 // make a goroutines using channels to make fast
-// main <-> getPage, getPage <-> extractJob
+// main <-> getPage(goroutines * 10(totalpages)), getPage <-> extractJob (goroutines * # of jobs per page ) | total goroutines 10 + (10*40) 
+// make writeJobs to goroutines
 
 func main() {
 	var jobs []extractedJob
@@ -35,7 +36,7 @@ func main() {
 		go getPage(i+1, c)
 	}
 
-	for i:=0;i<totalPages;i++{
+	for i:=0; i<totalPages; i++{
 		extractedJobs := <-c
 		jobs = append(jobs, extractedJobs...)
 	}
@@ -114,6 +115,7 @@ func getPages() int {
 }
 
 func writeJobs(jobs []extractedJob) {
+	c := make(chan []string)
 	file, err := os.Create("jobs.csv")
 	checkErr((err))
 
@@ -124,14 +126,19 @@ func writeJobs(jobs []extractedJob) {
 
 	wErr := w.Write(headers)
 	checkErr(wErr)
-	
 	for _, job := range jobs{
-		links := "https://www.saramin.co.kr/zf_user/jobs/relay/view?isMypage=no&rec_idx=" + job.id
-		jobSlice := []string{links, job.title, job.date, job.location, job.corp}
-		jwErr := w.Write(jobSlice)
-		checkErr(jwErr)
+		go writingJobs(job, c)
 	}
 
+	for i:=0; i<len(jobs);i++{
+		w.Write(<-c)
+	}
+}
+
+func writingJobs(job extractedJob, c chan<- []string) {
+		links := "https://www.saramin.co.kr/zf_user/jobs/relay/view?isMypage=no&rec_idx=" + job.id
+		jobSlice := []string{links, job.title, job.date, job.location, job.corp}
+		c <- jobSlice
 }
 
 func checkErr(err error){
