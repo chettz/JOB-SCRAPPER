@@ -23,42 +23,29 @@ type extractedJob struct{
 
 var baseURL string = "https://www.saramin.co.kr/zf_user/search/recruit?=&searchword=python"
 
+// make a goroutines using channels to make fast
+// main <-> getPage, getPage <-> extractJob
 
 func main() {
 	var jobs []extractedJob
+	c := make(chan []extractedJob)
 	totalPages := getPages()
 
 	for i:=0;i<totalPages;i++{
-		extractedJobs := getPage(i+1)
-		jobs = append(jobs, extractedJobs...) // get the contents(combines the arrays)
+		go getPage(i+1, c)
 	}
 
+	for i:=0;i<totalPages;i++{
+		extractedJobs := <-c
+		jobs = append(jobs, extractedJobs...)
+	}
 	writeJobs(jobs)
 	fmt.Println("Done, extracted", len(jobs))
 }
 
-func writeJobs(jobs []extractedJob) {
-	file, err := os.Create("jobs.csv")
-	checkErr((err))
-
-	w := csv.NewWriter(file)
-	defer w.Flush() // run when functions ends
-
-	headers := []string{"ID", "Title", "Date", "Location", "Corp"}
-
-	wErr := w.Write(headers)
-	checkErr(wErr)
-	
-	for _, job := range jobs{
-		jobSlice := []string{"https://www.saramin.co.kr/zf_user/jobs/relay/view?isMypage=no&rec_idx=" + job.id, job.title, job.date, job.location, job.corp}
-		jwErr := w.Write(jobSlice)
-		checkErr(jwErr)
-	}
-
-}
-
-func getPage(page int) []extractedJob {
+func getPage(page int, mainC chan<- []extractedJob) {
 	var jobs []extractedJob
+	c := make(chan extractedJob)
 	pageURL := baseURL + "&recruitPage=" + strconv.Itoa(page)
 	fmt.Println("Requesting", pageURL)
 	res, err := http.Get(pageURL)
@@ -70,16 +57,20 @@ func getPage(page int) []extractedJob {
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	checkErr(err)
 
-	// searchCards := doc.Find(".item_recruit")
+	searchCards := doc.Find(".item_recruit")
 
-	doc.Find(".item_recruit").Each(func(i int, card *goquery.Selection){ // 's' means each card section
-		job := extractJob(card)
-		jobs = append(jobs, job)
+	searchCards.Each(func(i int, card *goquery.Selection){ // 'card' means each card section
+		go extractJob(card, c) // calls multiple extractJob at the same time
 	})
-	return jobs
+
+	for i:=0; i<searchCards.Length(); i++{
+		job := <-c // recieve the results, block operation
+		jobs = append(jobs, job)
+	}
+	mainC <- jobs
 }
 
-func extractJob(card *goquery.Selection) extractedJob {
+func extractJob(card *goquery.Selection, c chan<- extractedJob) {
 	locations := []string{}
 	var location string
 	id, _ := card.Attr("value")
@@ -90,7 +81,7 @@ func extractJob(card *goquery.Selection) extractedJob {
 	})
 	corp := cleanString(card.Find(".corp_name").Text())
 	date := cleanString(card.Find(".date").Text())
-	return extractedJob{
+	c <- extractedJob{
 		id: 		id, 
 		title: 		title, 
 		location: 	location, 
@@ -120,6 +111,27 @@ func getPages() int {
 		pages = s.Find("a").Length()
 	})
 	return pages
+}
+
+func writeJobs(jobs []extractedJob) {
+	file, err := os.Create("jobs.csv")
+	checkErr((err))
+
+	w := csv.NewWriter(file) // buffer
+	defer w.Flush() // run when functions ends
+
+	headers := []string{"ID", "Title", "Date", "Location", "Corp"}
+
+	wErr := w.Write(headers)
+	checkErr(wErr)
+	
+	for _, job := range jobs{
+		links := "https://www.saramin.co.kr/zf_user/jobs/relay/view?isMypage=no&rec_idx=" + job.id
+		jobSlice := []string{links, job.title, job.date, job.location, job.corp}
+		jwErr := w.Write(jobSlice)
+		checkErr(jwErr)
+	}
+
 }
 
 func checkErr(err error){
