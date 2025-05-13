@@ -25,7 +25,7 @@ func main() {
 	totalPages := getPages()
 
 	for i:=0;i<totalPages;i++{
-		getPage(i)
+		getPage(i+1)
 	}
 }
 
@@ -41,11 +41,18 @@ func getPage(page int){
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	checkErr(err)
 
-	searchCards := doc.Find(".item_recruit")
+	// searchCards := doc.Find(".item_recruit")
 
-	searchCards.Each(func(i int, s *goquery.Selection){ // 's' means each card section
-		id, _ := s.Attr("value")
-		fmt.Println(id)
+	doc.Find(".item_recruit").Each(func(i int, card *goquery.Selection){ // 's' means each card section
+		locations := []string{}
+		id, _ := card.Attr("value")
+		title := card.Find(".job_tit>a").Text()
+		card.Find(".job_condition span").First().Find("a").Each(func(i int, s *goquery.Selection){
+			locations = append(locations, s.Text())
+		})
+		
+		fmt.Println(id, title, locations)
+
 	})
 
 }
