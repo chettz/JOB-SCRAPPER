@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -46,7 +47,7 @@ func getPage(page int){
 	doc.Find(".item_recruit").Each(func(i int, card *goquery.Selection){ // 's' means each card section
 		locations := []string{}
 		id, _ := card.Attr("value")
-		title := card.Find(".job_tit>a").Text()
+		title := cleanString(card.Find(".job_tit>a").Text())
 		card.Find(".job_condition span").First().Find("a").Each(func(i int, s *goquery.Selection){
 			locations = append(locations, s.Text())
 		})
@@ -55,6 +56,12 @@ func getPage(page int){
 
 	})
 
+}
+
+func cleanString(str string)[]string {
+	// removing space from the both side and seperating all the words removes the space between text
+	// the texts parsed from html contains spaces between words. it can be removed by strings.Fields 
+	return strings.Fields(strings.TrimSpace(str))
 }
 
 func getPages() int {
