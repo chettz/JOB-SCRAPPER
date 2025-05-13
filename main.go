@@ -15,10 +15,10 @@ func handleHome(c echo.Context) error {
 }
 
 func handleScrape(c echo.Context) error {
-	defer os.Remove("fileName")
+	defer os.Remove(fileName)
 	term := strings.ToLower(scrapper.CleanString(c.FormValue("term")))
 	scrapper.Scrape(term)
-	return c.Attachment("fileName", "jobs(stack-" + term + ").csv")
+	return c.Attachment(fileName, "jobs(stack-" + term + ").csv")
 }
 
 
