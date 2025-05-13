@@ -50,6 +50,7 @@ func getPage(page int){
 		title := cleanString(card.Find(".job_tit>a").Text())
 		card.Find(".job_condition span").First().Find("a").Each(func(i int, s *goquery.Selection){
 			locations = append(locations, s.Text())
+			strings.Join(locations, " ") // ["seoul", "yongsan-gu"] -> "seoul yongsan-gu"
 		})
 		
 		fmt.Println(id, title, locations)
@@ -58,10 +59,11 @@ func getPage(page int){
 
 }
 
-func cleanString(str string)[]string {
+func cleanString(str string) string {
 	// removing space from the both side and seperating all the words removes the space between text
-	// the texts parsed from html contains spaces between words. it can be removed by strings.Fields 
-	return strings.Fields(strings.TrimSpace(str))
+	// the texts parsed from html contains spaces between words. it can be removed by strings.Fields and made to array 
+	// Strings.Join(array -> string) => concatenating the elements of a to create a single string with a seperater
+	return strings.Join(strings.Fields(strings.TrimSpace(str)), " ")
 }
 
 func getPages() int {
