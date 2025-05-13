@@ -125,8 +125,9 @@ func writeJobs(jobs []extractedJob) {
 	file.Write(utf8bom) // file.Write() is appropriate at writing little amount of data. It's not effective at repetitive writing causing disk I/O. 
 
 	w := csv.NewWriter(file) // buffer
-	defer w.Flush() // run when functions ends, writes all contents in the buffer at once.
 	defer file.Close() // clear FD
+	defer w.Flush() // run when functions ends, writes all contents in the buffer at once.
+	
 
 	headers := []string{"ID", "Title", "Date", "Location", "Corp"}
 
